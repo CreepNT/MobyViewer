@@ -1,0 +1,7 @@
+bin/
+.vs/
+.vscode/
+build/
+builddir/
+out/
+*desktop.ini
