@@ -14,11 +14,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-// [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and compatibility with old VS compilers.
-// To link with VS2010-era libraries, VS2015+ requires linking with legacy_stdio_definitions.lib, which we do using this pragma.
-// Your own project should not be affected, as you are likely to link with a newer binary of GLFW that is adequate for your version of Visual Studio.
-#if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
-//#pragma comment(lib, "legacy_stdio_definitions")
+#ifndef NDEBUG
+#define RESSOURCES_PATH "../data/"
+#else
+#define RESSOURCES_PATH
 #endif
 
 float DISTANCE(Moby* a, Moby* b) {
@@ -41,11 +40,130 @@ char* getGameNameFromID(int id) {
     }
 }
 
+typedef struct {
+    uint16_t oClass;
+    char* name;
+} oClassString;
+
+typedef struct {
+    uint32_t stringsNum;
+    oClassString* strings;
+} StringContainer;
+
+StringContainer gameStrings[GAMES_COUNT] = {
+    {0, nullptr},
+    {0, nullptr},
+    {0, nullptr},
+    {0, nullptr}
+};
+
+size_t getLinesCountFromFH(FILE* fh) {
+    int ret;
+    size_t linesCount = 1; //Offset by one, because last line might have no \n
+    char c;
+    fseek(fh, 0, SEEK_SET);
+    while (ret = fread(&c, 1, 1, fh), ret != EOF && ret != 0) {
+        if (c == '\n') linesCount++;
+    }
+    fseek(fh, 0, SEEK_SET);
+    return linesCount;
+}
+
+//This also strips the \n at end of line
+void getLineFromFH(FILE* fh, char* outStr, size_t maxSiz) {
+    char ch, buf[2048] = { u8"Paradox ERR" };
+    int ret, bufctr = 0;
+    if (maxSiz < sizeof(buf)) {
+        while (bufctr < sizeof(buf) && bufctr < maxSiz) {
+            ret = fread(&ch, 1, 1, fh);
+            if (ret == 0 || ch == '\n') {
+                if (bufctr != 0) buf[bufctr] = '\0'; //If nothing was read, we need to copy out Paradox ERR; so don't NUL the first char.
+                break;
+            }
+            else buf[bufctr++] = ch;
+        }
+        buf[sizeof(buf) - 1] = '\0';
+    }
+    else maxSiz = sizeof(buf) - 1;
+    strncpy(outStr, buf, maxSiz);
+}
+
+//Returns NULL on error, a valid address otherwise.
+//NOTE : you need to free() the returned address after usage.
+//allocsize is an OPTIONAL parameter, the allocation size will be copied there if specified.
+char* copyStringToMallocedSpace(char* string, size_t* allocsize = nullptr) {
+    size_t alloclen = strlen(string) + 1;
+    char* ret = (char*)malloc(alloclen);
+    if (ret != NULL) {
+        strncpy(ret, string, alloclen);
+        if (allocsize != nullptr)
+            *allocsize = alloclen;
+        return ret;
+    }
+    else {
+        if (allocsize != nullptr)
+            *allocsize = 0;
+        return nullptr;
+    }
+}
+
 char* getFormattedOClassStringFromID(uint16_t oClass, uint32_t game) {
-    //TODO : allow loading of Replanetizer strings for this
+    if (game > GAME_RC4 || game == GAME_INVALID)
+        return nullptr;
+    game -= 1;
+    for (int i = 0; i < gameStrings[game].stringsNum; i++) {
+        if (oClass == gameStrings[game].strings[i].oClass)
+            return gameStrings[game].strings[i].name;
+    }
     return nullptr;
 }
 
+void loadStrings(){
+    FILE* fh = NULL;
+    for (int i = 0; i < GAMES_COUNT; i++) {
+        char fileName[64];
+        snprintf(fileName, sizeof(fileName), RESSOURCES_PATH "rc%d.txt", (i + 1));
+        fh = fopen(fileName, "r");
+        if (fh == NULL) {
+            fprintf(stderr, "Failed to open '%s' for reading.\n", fileName);
+            continue;
+        }
+        size_t linesCount = getLinesCountFromFH(fh);
+        oClassString* sp = (oClassString*)malloc(linesCount * sizeof(oClassString));
+        if (sp == NULL) {
+            fprintf(stderr, "Failed to allocate memory for strings from R&C%d.\n", i + 1);
+            continue;
+        }
+        gameStrings[i].strings = sp;
+        gameStrings[i].stringsNum = linesCount;
+        for (int j = 0; j < linesCount; j++) {
+            char lineBuf[512], strBuf[512];
+            uint16_t oClass;
+            getLineFromFH(fh, lineBuf, sizeof(lineBuf));
+            int ret = sscanf(lineBuf, "%04hX=%s", &oClass, strBuf);
+            if (ret != 2) {
+                fprintf(stderr, "Malformed string '%s' in file '%s' !\n", lineBuf, fileName);
+                gameStrings[i].strings[j].oClass = 0xFFFF; //Hopefully this doesn't collide with anything
+                gameStrings[i].strings[j].name = "Paradox ERR";
+                continue;
+            }
+            gameStrings[i].strings[j].name = copyStringToMallocedSpace(strBuf);
+            gameStrings[i].strings[j].oClass = oClass;
+            printf("oClass %hd is '%s' for R&C%d\n", oClass, strBuf, (i + 1));
+        }
+    }
+}
+
+void unloadStrings(){
+    for (int i = 0; i < GAMES_COUNT; i++) {
+        if (gameStrings[i].strings == nullptr) continue;
+        for (int j = 0; j < gameStrings[i].stringsNum; j++) {
+            if (gameStrings[i].strings[j].oClass != 0xFFFF)
+                free(gameStrings[i].strings[j].name);
+        }
+        free(gameStrings[i].strings);
+    }
+}
 
 void AddMobyWidget(Moby* m, uint32_t game) {
     ImGui::Checkbox("Visible", (bool*)&m->visible);
@@ -101,9 +219,11 @@ void AddMobyWidget(Moby* m, uint32_t game) {
     ImGui::InputScalar("UnkA4", ImGuiDataType_U32, &m->unk_A4, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("UnkA8", ImGuiDataType_U16, &m->unk_A8, NULL, NULL, "%04X", ImGuiInputTextFlags_ReadOnly);
     
-    char* oClassStr = getFormattedOClassStringFromID(m->oClass, game);
-    if (oClassStr != nullptr)
-        ImGui::InputText("Moby oClass", oClassStr, strlen(oClassStr), ImGuiInputTextFlags_ReadOnly);
+    char* oClassStr = getFormattedOClassStringFromID(m->oClass, game), buf[512];
+    if (oClassStr != nullptr) {
+        snprintf(buf, sizeof(buf), "%s (%hd)", oClassStr, m->oClass);
+        ImGui::InputText("Moby oClass", buf, strlen(buf), ImGuiInputTextFlags_ReadOnly);
+    }
     else
         ImGui::InputScalar("Moby oClass", ImGuiDataType_S16, &m->oClass, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
     
@@ -136,6 +256,7 @@ int main(int argc, char** argv){
     glfwSetWindowIcon(window, 1, &winIcon);
     stbi_image_free(winIcon.pixels);
     
+    loadStrings();
 
     // Our state
     bool showDemoWindow = false;
@@ -390,6 +511,8 @@ int main(int argc, char** argv){
         database->cleanupTarget(i);
     }
     delete database;
+
+    unloadStrings();
 
     glfwDestroyWindow(window);
     glfwTerminate();

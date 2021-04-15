@@ -216,6 +216,10 @@ void getMobyStackAddressesAndGameForPS2Emu(uint8_t* eeMemory, uint32_t* pGame, u
 	else {
 		*pGame = (game + 1); //Game is its number (RaC1 => 1, RaC2 => 2, etc...)
 	}
+	if (game == 0) {
+		fprintf(stderr, "[PS2Emu - memmap] Ratchet & Clank 1 is not supported.\n");
+		return;
+	}
 
 	uint32_t i, j;
 	for (i = CODE_SEGMENT_BASE / 0x4; i < EE_MEMORY_SIZE / 4 - SEGMENT_COUNTS[game]; i++) {
