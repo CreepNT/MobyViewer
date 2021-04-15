@@ -4,6 +4,8 @@ This tool allows you to visualize Mobys in real-time from a chosen target platfo
 At the moment, only PS2Emu (PCSX2) is supported, and MobyViewer is only Win32 compatible.
 More target platforms and functionnalities will be added in the future.
 
+![Sample screenshot](https://raw.githubusercontent.com/CreepNT/MobyViewer/master/screenshot0.png)
+
 # Usage Guide
 Currently visible Mobys have their title bar colored in orange, to allow for easy distinguishing.
 Use the `Attach` button with PCSX2 launch to attach to the process, and all Mobys' data should appear.
