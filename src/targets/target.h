@@ -30,6 +30,10 @@ public:
 	//Passing an address from target memory address space should be supported, however (i.e. 0x81000000 on PS Vita)
 	virtual size_t readTargetMemory(uint32_t addr, uint8_t* buf, size_t readSize) = 0;
 
+	//addr should be platform independant (i.e. offset from address 0) and translated to target platform address internally.
+	//Passing an address from target memory address space should be supported, however (i.e. 0x81000000 on PS Vita)
+	virtual size_t writeTargetMemory(uint32_t addr, uint8_t* buf, size_t writeSize) = 0;
+
 	//When called, this should cleanup the internal state of the target.
 	virtual void cleanup(void) = 0;
 };

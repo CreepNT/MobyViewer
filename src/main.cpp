@@ -107,7 +107,7 @@ char* copyStringToMallocedSpace(char* string, size_t* allocsize = nullptr) {
     }
 }
 
-char* getFormattedOClassStringFromID(uint16_t oClass, uint32_t game) {
+char* getOClassStringForID(uint16_t oClass, uint32_t game) {
     if (game > GAME_RC4 || game == GAME_INVALID)
         return nullptr;
     game -= 1;
@@ -156,7 +156,8 @@ void loadStrings(){
 
 void unloadStrings(){
     for (int i = 0; i < GAMES_COUNT; i++) {
-        if (gameStrings[i].strings == nullptr) continue;
+        if (gameStrings[i].strings == nullptr)
+            continue;
         for (int j = 0; j < gameStrings[i].stringsNum; j++) {
             if (gameStrings[i].strings[j].oClass != 0xFFFF)
                 free(gameStrings[i].strings[j].name);
@@ -169,17 +170,17 @@ void AddMobyWidget(Moby* m, uint32_t game) {
     ImGui::Checkbox("Visible", (bool*)&m->visible);
     ImGui::InputFloat4("Unk0", (float*)&m->unk0, "%.3f", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputFloat3("Position", (float*)&m->pos, "%.3f", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("State", ImGuiDataType_U8, &m->state, NULL, NULL, "%02X", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Group", ImGuiDataType_U8, &m->group, NULL, NULL, "%02X", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Texture Mode", ImGuiDataType_U8, &m->textureMode, NULL, NULL, "%02X", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Opacity", ImGuiDataType_U8, &m->opacity, NULL, NULL, "%02X", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("State", ImGuiDataType_U8, &m->state, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Group", ImGuiDataType_U8, &m->group, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Texture Mode", ImGuiDataType_U8, &m->textureMode, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Opacity", ImGuiDataType_U8, &m->opacity, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Model Pointer", ImGuiDataType_U32, &m->model, NULL, NULL, "@ 0x%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Parent Moby Pointer", ImGuiDataType_U32, &m->parentMoby, NULL, NULL, "@ 0x%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputFloat("Scale (all axes)", &m->scale, 0, 0, "%.3f", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Unk30", ImGuiDataType_U8, &m->unk_30, NULL, NULL, "%02X", ImGuiInputTextFlags_ReadOnly); 
+    ImGui::InputScalar("Unk30", ImGuiDataType_U8, &m->unk_30, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly); 
     ImGui::InputScalar("Render Distance", ImGuiDataType_S16, &m->renderDistance, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Flags 1", ImGuiDataType_S16, &m->flags1, NULL, NULL, "%04X", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Flags 2", ImGuiDataType_S16, &m->flags2, NULL, NULL, "%04X", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Flags 1", ImGuiDataType_U16, &m->flags1, NULL, NULL, "%04hX", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Flags 2", ImGuiDataType_U16, &m->flags2, NULL, NULL, "%04hX", ImGuiInputTextFlags_ReadOnly);
     float clr[4];
     clr[0] = ((float)(m->color1 & 0xFF) / 255.f);
     clr[1] = ((float)((m->color1 >> 8 ) & 0xFF) / 255.f);
@@ -191,10 +192,10 @@ void AddMobyWidget(Moby* m, uint32_t game) {
     clr[2] = ((float)((m->color2 >> 16) & 0xFF) / 255.f);
     clr[3] = ((float)((m->color2 >> 24) & 0xFF) / 255.f);
     ImGui::ColorEdit4("Color 2", clr, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_Uint8);
-    ImGui::InputScalar("Unk40", ImGuiDataType_U64, (uint64_t*)&m->unk_40, NULL, NULL, "%016X", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Unk40", ImGuiDataType_U64, (uint64_t*)&m->unk_40, NULL, NULL, "%016llX", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputFloat("Unk48", &m->unk_48, 0.f, 0.f, "%.3f", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputFloat("Unk4C", &m->unk_4C, 0.f, 0.f, "%.3f", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Unk50", ImGuiDataType_U64, (uint64_t*)&m->unk_50, NULL, NULL, "%016X", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Unk50", ImGuiDataType_U64, (uint64_t*)&m->unk_50, NULL, NULL, "%016llX", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Previous animation", ImGuiDataType_U32, &m->previousAnimation, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Current animation", ImGuiDataType_U32, &m->currentAnimation, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Unk60", ImGuiDataType_U32, (uint32_t*)&m->unk_60, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
@@ -217,19 +218,19 @@ void AddMobyWidget(Moby* m, uint32_t game) {
     ImGui::InputScalar("UNK_9C", ImGuiDataType_U32, &m->unk_9C, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Collision counter", ImGuiDataType_U32 , &m->collisionCounter, NULL, NULL, "%X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("UnkA4", ImGuiDataType_U32, &m->unk_A4, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("UnkA8", ImGuiDataType_U16, &m->unk_A8, NULL, NULL, "%04X", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("UnkA8", ImGuiDataType_U16, &m->unk_A8, NULL, NULL, "%04hX", ImGuiInputTextFlags_ReadOnly);
     
-    char* oClassStr = getFormattedOClassStringFromID(m->oClass, game), buf[512];
+    char* oClassStr = getOClassStringForID(m->oClass, game), buf[512];
     if (oClassStr != nullptr) {
         snprintf(buf, sizeof(buf), "%s (%hd)", oClassStr, m->oClass);
         ImGui::InputText("Moby oClass", buf, strlen(buf), ImGuiInputTextFlags_ReadOnly);
     }
     else
-        ImGui::InputScalar("Moby oClass", ImGuiDataType_S16, &m->oClass, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
+        ImGui::InputScalar("Moby oClass", ImGuiDataType_U16, &m->oClass, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
     
     
     ImGui::InputScalar("UnkAC", ImGuiDataType_U32, &m->unk_AC, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("UnkB0", ImGuiDataType_U16, &m->unk_B0, NULL, NULL, "%04X", ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("UnkB0", ImGuiDataType_U16, &m->unk_B0, NULL, NULL, "%04hX", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Moby UID", ImGuiDataType_U16, &m->UID, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("UnkB4", ImGuiDataType_U32, &m->unk_B4, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Multi-Moby Part pointer", ImGuiDataType_U32, &m->multiMobyPart, NULL, NULL, "@ 0x%08X", ImGuiInputTextFlags_ReadOnly);
@@ -267,8 +268,11 @@ int main(int argc, char** argv){
     bool disableDataUpdate = false;
     bool showVisibleMobysOnly = false;
     
-
+#ifdef _WIN32
     PS2EmuTargetInitParams ps2trgtprm = {false, 0};
+#else
+    PS2EmuTargetInitParams ps2trgtprm = { true, 0 };
+#endif
     //PS3EmuTargetInitParams
     //PS3TargetInitParams
     //PSVitaTargetInitParams
@@ -295,18 +299,23 @@ int main(int argc, char** argv){
             database->refresh();
         }
 
-        uint32_t num_mobies = database->getMobysCount(), stackBase = database->getStackBase();
+        uint32_t num_mobies = database->getMobysCount(), stackBase = database->getStackBase(), stackTop = database->getStackTop();
         {
             int width, height;
             glfwGetWindowSize(window, &width, &height);
 
             {
                 ImGui::BeginMainMenuBar();
-                char menuBarTextBuffer[32];
+                char menuBarTextBuffer[64] = { 0 };
                 if (num_mobies != 0) {
-                    sprintf(menuBarTextBuffer, "Moby Tbl @ 0x%08X", stackBase);
+                    sprintf(menuBarTextBuffer, "Moby Table Base @ 0x%08X", stackBase);
                     if (ImGui::MenuItem(menuBarTextBuffer)) {
                         sprintf(menuBarTextBuffer, "0x%08X", stackBase);
+                        ImGui::SetClipboardText(menuBarTextBuffer);
+                    }
+                    sprintf(menuBarTextBuffer, "Moby Table Top @ 0x%08X", stackTop);
+                    if (ImGui::MenuItem(menuBarTextBuffer)) {
+                        sprintf(menuBarTextBuffer, "0x%08X", stackTop);
                         ImGui::SetClipboardText(menuBarTextBuffer);
                     }
                     sprintf(menuBarTextBuffer, "Loaded mobies : %d", num_mobies);
@@ -339,9 +348,9 @@ int main(int argc, char** argv){
                         ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() * 0.73f);
                         if (filterClass < 0) filterClass = 0;
                         if (filterClass > 65535) filterClass = 65535;
-                        ImGui::InputInt("oClass", &filterClass); 
+                        ImGui::InputInt("oClass", &filterClass);
                         if (ImGui::IsItemHovered()) {
-                            char* oClassName = getFormattedOClassStringFromID(filterClass, database->getCurrentGame());
+                            char* oClassName = getOClassStringForID(filterClass, database->getCurrentGame());
                             if (oClassName != nullptr) ImGui::SetTooltip(oClassName);
                         }
                         ImGui::TableNextColumn(); ImGui::Checkbox("Enable##oClass", &doFilteringByClass); ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() * 0.73f);
@@ -389,21 +398,21 @@ int main(int argc, char** argv){
                         ImGui::Text(workBuf);
                         sprintf(workBuf, "Current game : %s", getGameNameFromID(database->getCurrentGame()));
                         ImGui::Text(workBuf);
-                        sprintf(workBuf, "%s", isTargetAttached ? "Reattach" : "Attach");
-                        if (ImGui::Button(workBuf)) {
+                        if (ImGui::Button(isTargetAttached ? "Reattach" : "Attach")) {
                             database->initializeTarget(initParams, isTargetAttached); //Force cleanup if already init
                             if (!isTargetAttached) database->refreshStateAndDB(); //Flush the DB once to initialize target, if we haven't init.
                         }
-                        if (ImGui::IsItemHovered())
-                            ImGui::SetTooltip("Connect to target platform with specified parameters");
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetTooltip(isTargetAttached ? "Reconnect to target platform" : "Connect to target platform with specified parameters");
+                        }
 
                         ImGui::SameLine();
-                        if (isTargetAttached && ImGui::Button("Detach")) {
-                            database->cleanupTarget(currentTarget);
+                        if (isTargetAttached){
+                            if (ImGui::Button("Detach"))
+                                database->cleanupTarget(currentTarget);
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetTooltip("Disconnect from target platform");
                         }
-                        if (ImGui::IsItemHovered())
-                            ImGui::SetTooltip("Disconnect from target platform");
-
 
 
                         ImGui::SameLine();
@@ -426,8 +435,13 @@ int main(int argc, char** argv){
                         switch (database->getCurrentTarget()) {
                         case TARGET_PLATFORM_PS2EMU:
                             ImGui::Checkbox("Use IPC", &ps2trgtprm.useIPC);
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetTooltip("Usage of IPC is experimental and not recommended.\nIPC is mandatory on non-Win32 platforms.\n");
+
                             if (ps2trgtprm.useIPC) {
                                 ImGui::InputScalar("IPC Port", ImGuiDataType_U32, &ps2trgtprm.port);
+                                if (ImGui::IsItemHovered())
+                                    ImGui::SetTooltip("Use 0 for default port.");
                                 if (ps2trgtprm.port < 0) ps2trgtprm.port = 0;
                                 if (ps2trgtprm.port > 65535) ps2trgtprm.port = 65535;
                             }
@@ -441,9 +455,6 @@ int main(int argc, char** argv){
                         }
                         ImGui::EndChild();
                     }
-
-
-
                     ImGui::EndChild();
                 }
 

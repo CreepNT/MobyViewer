@@ -30,10 +30,12 @@ add_executable(${PROJECT_NAME}
 	src/moby.cpp
 	src/dbmgr.cpp
 	
+	src/targets/pcsx2_ipc.h
 	src/targets/dummy.h
 	src/targets/target.cpp
 	src/targets/ps2emu.cpp
 	src/dbmgr_internal/ps2emu.c
+	
 	
 	MobyViewer.rc
 
@@ -47,12 +49,18 @@ libs/imgui/imgui_widgets.cpp
 libs/imgui/backends/imgui_impl_glfw.cpp
 libs/imgui/backends/imgui_impl_opengl3.cpp)
 
-if (MSVC)
+if (WIN32)
 	#Only Windows has precompiled library
-target_link_libraries(${PROJECT_NAME} glfw3)
-add_subdirectory(libs/glfw)
-target_link_libraries(${PROJECT_NAME} glfw)
+	target_link_libraries(${PROJECT_NAME} glfw3)
+
+	#Add build-from-source as fallback.
+	add_subdirectory(libs/glfw)
+	target_link_libraries(${PROJECT_NAME} glfw)
+	
+	#Winsock is needed for PCSX2Ipc.
+	target_link_libraries(${PROJECT_NAME} ws2_32)
 else()
-add_subdirectory(libs/glfw)
-target_link_libraries(${PROJECT_NAME} glfw)
+	#Else, build from source.
+	add_subdirectory(libs/glfw)
+	target_link_libraries(${PROJECT_NAME} glfw)
 endif()

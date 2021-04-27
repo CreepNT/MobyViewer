@@ -51,7 +51,7 @@
 class PCSX2Ipc {
 
     // allow test suite to poke internals
-  protected:
+protected:
     /**
      * IPC Slot identifier. @n
      * Used by the IPC to identify concurrent sessions.
@@ -86,7 +86,7 @@ class PCSX2Ipc {
      * The name of the unix socket used on platforms with unix socket support.
      * @n Currently everything except Windows.
      */
-    char *SOCKET_NAME;
+    std::string SOCKET_NAME;
 #endif
 
     /**
@@ -97,28 +97,28 @@ class PCSX2Ipc {
      */
 #define MAX_IPC_SIZE 650000
 
-    /**
-     * Maximum memory used by an IPC message reply.
-     * Equivalent to 50,000 Read64 replies.
-     * @see MAX_IPC_SIZE
-     * @see MAX_BATCH_REPLY_COUNT
-     */
+     /**
+      * Maximum memory used by an IPC message reply.
+      * Equivalent to 50,000 Read64 replies.
+      * @see MAX_IPC_SIZE
+      * @see MAX_BATCH_REPLY_COUNT
+      */
 #define MAX_IPC_RETURN_SIZE 450000
 
-    /**
-     * Maximum number of commands sent in a batch message.
-     * @see MAX_IPC_RETURN_SIZE
-     * @see MAX_IPC_SIZE
-     */
+      /**
+       * Maximum number of commands sent in a batch message.
+       * @see MAX_IPC_RETURN_SIZE
+       * @see MAX_IPC_SIZE
+       */
 #define MAX_BATCH_REPLY_COUNT 50000
 
-    /**
-     * IPC return buffer. @n
-     * A preallocated buffer used to store all IPC replies.
-     * @see ipc_buffer
-     * @see MAX_IPC_RETURN_SIZE
-     */
-    char *ret_buffer;
+       /**
+        * IPC return buffer. @n
+        * A preallocated buffer used to store all IPC replies.
+        * @see ipc_buffer
+        * @see MAX_IPC_RETURN_SIZE
+        */
+    char* ret_buffer;
 
     /**
      * IPC messages buffer. @n
@@ -126,7 +126,7 @@ class PCSX2Ipc {
      * @see ret_buffer
      * @see MAX_IPC_SIZE
      */
-    char *ipc_buffer;
+    char* ipc_buffer;
 
     /**
      * Length of the batch IPC request. @n
@@ -164,7 +164,7 @@ class PCSX2Ipc {
      * @see IPCCommand
      * @see MAX_BATCH_REPLY_COUNT
      */
-    unsigned int *batch_arg_place;
+    unsigned int* batch_arg_place;
 
     /**
      * Sets the state of the batch command building. @n
@@ -202,8 +202,8 @@ class PCSX2Ipc {
      * @return res_array
      */
     template <typename T>
-    static auto ToArray(char *res_array, T res, int i) -> char * {
-        memcpy((res_array + i), (char *)&res, sizeof(T));
+    static auto ToArray(char* res_array, T res, int i) -> char* {
+        memcpy((res_array + i), (char*)&res, sizeof(T));
         return res_array;
     }
 
@@ -214,8 +214,8 @@ class PCSX2Ipc {
      * @return The converted value.
      */
     template <typename T>
-    static auto FromArray(char *arr, int i) -> T {
-        return *(T *)(arr + i);
+    static auto FromArray(char* arr, int i) -> T {
+        return *(T*)(arr + i);
     }
 
     /**
@@ -228,8 +228,8 @@ class PCSX2Ipc {
         // packets, so let's just do sanity checks for the sake of it.
         // TODO: go back when clang has implemented C++20 [[unlikely]]
         return ((batch_len + command_size) >= MAX_IPC_SIZE ||
-                (reply_len + reply_size) >= MAX_IPC_RETURN_SIZE ||
-                arg_cnt + 1 >= MAX_BATCH_REPLY_COUNT);
+            (reply_len + reply_size) >= MAX_IPC_RETURN_SIZE ||
+            arg_cnt + 1 >= MAX_BATCH_REPLY_COUNT);
     }
 
     /**
@@ -249,7 +249,7 @@ class PCSX2Ipc {
         server.sin_addr.s_addr = inet_addr("127.0.0.1");
         server.sin_port = htons(slot);
 
-        if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0) {
             close_portable(sock);
             sock_state = false;
             return;
@@ -260,10 +260,10 @@ class PCSX2Ipc {
 
         sock = socket(AF_UNIX, SOCK_STREAM, 0);
         server.sun_family = AF_UNIX;
-        strcpy(server.sun_path, SOCKET_NAME);
+        strcpy(server.sun_path, SOCKET_NAME.c_str());
 
-        if (connect(sock, (struct sockaddr *)&server,
-                    sizeof(struct sockaddr_un)) < 0) {
+        if (connect(sock, (struct sockaddr*)&server,
+            sizeof(struct sockaddr_un)) < 0) {
             close_portable(sock);
             sock_state = false;
             return;
@@ -272,7 +272,7 @@ class PCSX2Ipc {
         sock_state = true;
     }
 
-  public:
+public:
     /**
      * IPC Command messages opcodes. @n
      * A list of possible operations possible by the IPC. @n
@@ -294,10 +294,22 @@ class PCSX2Ipc {
         MsgTitle = 0xB,         /**< Returns the game title. */
         MsgID = 0xC,            /**< Returns the game ID. */
         MsgUUID = 0xD,          /**< Returns the game UUID. */
+        MsgGameVersion = 0xE,   /**< Returns the game verion. */
+        MsgStatus = 0xF,        /**< Returns the emulator status. */
         MsgUnimplemented = 0xFF /**< Unimplemented IPC message. */
     };
 
-  protected:
+    /**
+     * Emulator status enum. @n
+     * A list of possible emulator statuses. @n
+     */
+    enum EmuStatus : uint32_t {
+        Running = 0,  /**< Game is running */
+        Paused = 1,   /**< Game is paused */
+        Shutdown = 2, /**< Game is shutdown */
+    };
+
+protected:
     /**
      * Internal function for savestate IPC messages. @n
      * On error throws an IPCStatus. @n
@@ -318,22 +330,23 @@ class PCSX2Ipc {
         if constexpr (T) {
             if (BatchSafetyChecks(2)) {
                 SetError(OutOfMemory);
-                return (char *)0;
+                return (char*)0;
             }
-            char *cmd = &ipc_buffer[batch_len];
+            char* cmd = &ipc_buffer[batch_len];
             cmd[0] = Y;
             cmd[1] = slot;
             batch_len += 2;
             arg_cnt += 1;
             return cmd;
-        } else {
+        }
+        else {
             // we are already locked in batch mode
             std::lock_guard<std::mutex> lock(ipc_blocking);
             ToArray(ipc_buffer, 4 + 2, 0);
             ipc_buffer[4] = Y;
             ipc_buffer[5] = slot;
             SendCommand(IPCBuffer{ 4 + 1 + 1, ipc_buffer },
-                        IPCBuffer{ 4 + 1, ret_buffer });
+                IPCBuffer{ 4 + 1, ret_buffer });
             return;
         }
     }
@@ -357,34 +370,35 @@ class PCSX2Ipc {
         if constexpr (T) {
             if (BatchSafetyChecks(1)) {
                 SetError(OutOfMemory);
-                return (char *)0;
+                return (char*)0;
             }
-            char *cmd = &ipc_buffer[batch_len];
+            char* cmd = &ipc_buffer[batch_len];
             cmd[0] = Y;
             batch_len += 1;
             batch_arg_place[arg_cnt] = reply_len;
             reply_len += 256;
             arg_cnt += 1;
             return cmd;
-        } else {
+        }
+        else {
             // we are already locked in batch mode
             std::lock_guard<std::mutex> lock(ipc_blocking);
             ToArray(ipc_buffer, 4 + 1, 0);
             ipc_buffer[4] = Y;
             SendCommand(IPCBuffer{ 4 + 1, ipc_buffer },
-                        IPCBuffer{ 256 + 4 + 1, ret_buffer });
+                IPCBuffer{ 256 + 4 + 1, ret_buffer });
             return GetReply<Y>(ret_buffer, 5);
         }
     }
 
-  public:
+public:
     /**
      * IPC message buffer. @n
      * A list of all needed fields to store an IPC message.
      */
     struct IPCBuffer {
         int size;     /**< Size of the buffer. */
-        char *buffer; /**< Buffer. */
+        char* buffer; /**< Buffer. */
         // do NOT specify a destructor to free buffer as we reuse the same
         // buffer to avoid the cost of mallocs; We specify destructors upon need
         // on structures that makes a copy of this, eg BatchCommand.
@@ -398,9 +412,9 @@ class PCSX2Ipc {
     struct BatchCommand {
         IPCBuffer ipc_message;          /**< IPC message fields. */
         IPCBuffer ipc_return;           /**< IPC return fields. */
-        unsigned int *return_locations; /**< Location of arguments in IPC return
+        unsigned int* return_locations; /**< Location of arguments in IPC return
                                            fields. */
-        // C bindings handle manually the freeing of such resources.
+                                           // C bindings handle manually the freeing of such resources.
 #ifndef C_FFI
         /**
          * BatchCommand Destructor.
@@ -427,7 +441,7 @@ class PCSX2Ipc {
         Unknown = 5        /**< Unknown status. */
     };
 
-  protected:
+protected:
     /**
      * Formats an IPC buffer. @n
      * Creates a new buffer with IPC opcode set and first address argument
@@ -441,12 +455,13 @@ class PCSX2Ipc {
      * @return The IPC buffer.
      */
     template <bool T = false>
-    auto FormatBeginning(char *cmd, uint32_t address, IPCCommand command,
-                         uint32_t size = 0) -> char * {
+    auto FormatBeginning(char* cmd, uint32_t address, IPCCommand command,
+        uint32_t size = 0) -> char* {
         if constexpr (T) {
             cmd[0] = (unsigned char)command;
             return ToArray(cmd, address, 1);
-        } else {
+        }
+        else {
             ToArray(cmd, size, 0);
             cmd[4] = (unsigned char)command;
             return ToArray(cmd, address, 5);
@@ -475,7 +490,7 @@ class PCSX2Ipc {
 #endif
     }
 
-  public:
+public:
 #if defined(C_FFI) || defined(DOXYGEN)
     /**
      * Gets the last error code set. @n
@@ -496,18 +511,22 @@ class PCSX2Ipc {
      * @param place An integer specifying where the argument is
      * in the buffer OR which function to read the reply of in
      * the case of a BatchCommand.
-     * @return The reply, variable type.
+     * @return The reply, variable type. Refer to the documentation of the
+     * standard function. Ownership of datastreams is also passed down to you,
+     * so don't forget to read carefully the documentation and see if you need
+     * to free anything!
      * @see IPCResult
      * @see IPCBuffer
      */
     template <IPCCommand T, typename Y>
-    auto GetReply(const Y &cmd, int place) {
-        [[maybe_unused]] char *buf;
+    auto GetReply(const Y& cmd, int place) {
+        [[maybe_unused]] char* buf;
         [[maybe_unused]] int loc;
         if constexpr (std::is_same<Y, BatchCommand>::value) {
             buf = cmd.ipc_return.buffer;
             loc = cmd.return_locations[place];
-        } else {
+        }
+        else {
             buf = cmd;
             loc = place;
         }
@@ -519,14 +538,15 @@ class PCSX2Ipc {
             return FromArray<uint32_t>(buf, loc);
         else if constexpr (T == MsgRead64)
             return FromArray<uint64_t>(buf, loc);
+        else if constexpr (T == MsgStatus)
+            return FromArray<EmuStatus>(buf, loc);
         else if constexpr (T == MsgVersion || T == MsgID || T == MsgTitle ||
-                           T == MsgUUID) {
-            // TODO: very small memleak here since we don't ask the user to
-            // delete, how to fix?
-            char *version = new char[256];
+            T == MsgUUID || T == MsgGameVersion) {
+            char* version = new char[256];
             memcpy(version, &buf[loc], 256);
             return version;
-        } else {
+        }
+        else {
             SetError(Unimplemented);
             return;
         }
@@ -543,14 +563,15 @@ class PCSX2Ipc {
      * @see IPCBuffer
      */
     template <typename T>
-    auto SendCommand(const T &cmd, const T &rt = T()) -> void {
+    auto SendCommand(const T& cmd, const T& rt = T()) -> void {
         IPCBuffer command;
         IPCBuffer ret;
 
         if constexpr (std::is_same<T, BatchCommand>::value) {
             command = cmd.ipc_message;
             ret = cmd.ipc_return;
-        } else {
+        }
+        else {
             command = cmd;
             ret = rt;
         }
@@ -577,7 +598,7 @@ class PCSX2Ipc {
         // socket datagram splittage, we continue to read
         while (receive_length < end_length) {
             auto tmp_length = read_portable(sock, &ret.buffer[receive_length],
-                                            ret.size - receive_length);
+                ret.size - receive_length);
 
             // we close the connection if an error happens
             if (tmp_length <= 0) {
@@ -657,11 +678,11 @@ class PCSX2Ipc {
         // we copy our arrays to unblock the IPC class.
         uint16_t bl = batch_len;
         int rl = reply_len;
-        char *c_cmd = new char[batch_len];
+        char* c_cmd = new char[batch_len];
         memcpy(c_cmd, ipc_buffer, batch_len * sizeof(char));
-        char *c_ret = new char[reply_len];
+        char* c_ret = new char[reply_len];
         memcpy(c_ret, ret_buffer, reply_len * sizeof(char));
-        unsigned int *arg_place = new unsigned int[arg_cnt];
+        unsigned int* arg_place = new unsigned int[arg_cnt];
         memcpy(arg_place, batch_arg_place, arg_cnt * sizeof(unsigned int));
 
         // we unblock the mutex
@@ -695,16 +716,16 @@ class PCSX2Ipc {
         // GetReply
         constexpr IPCCommand tag = []() -> IPCCommand {
             switch (sizeof(Y)) {
-                case 1:
-                    return MsgRead8;
-                case 2:
-                    return MsgRead16;
-                case 4:
-                    return MsgRead32;
-                case 8:
-                    return MsgRead64;
-                default:
-                    return MsgUnimplemented;
+            case 1:
+                return MsgRead8;
+            case 2:
+                return MsgRead16;
+            case 4:
+                return MsgRead32;
+            case 8:
+                return MsgRead64;
+            default:
+                return MsgUnimplemented;
             }
         }();
         if constexpr (tag == MsgUnimplemented) {
@@ -716,16 +737,17 @@ class PCSX2Ipc {
         if constexpr (T) {
             if (BatchSafetyChecks(5, sizeof(Y))) {
                 SetError(OutOfMemory);
-                return (char *)0;
+                return (char*)0;
             }
-            char *cmd =
+            char* cmd =
                 FormatBeginning<true>(&ipc_buffer[batch_len], address, tag);
             batch_len += 5;
             batch_arg_place[arg_cnt] = reply_len;
             reply_len += sizeof(Y);
             arg_cnt += 1;
             return cmd;
-        } else {
+        }
+        else {
             // we are already locked in batch mode
             std::lock_guard<std::mutex> lock(ipc_blocking);
             IPCBuffer cmd =
@@ -757,16 +779,16 @@ class PCSX2Ipc {
         // GetReply
         constexpr IPCCommand tag = []() -> IPCCommand {
             switch (sizeof(Y)) {
-                case 1:
-                    return MsgWrite8;
-                case 2:
-                    return MsgWrite16;
-                case 4:
-                    return MsgWrite32;
-                case 8:
-                    return MsgWrite64;
-                default:
-                    return MsgUnimplemented;
+            case 1:
+                return MsgWrite8;
+            case 2:
+                return MsgWrite16;
+            case 4:
+                return MsgWrite32;
+            case 8:
+                return MsgWrite64;
+            default:
+                return MsgUnimplemented;
             }
         }();
         if constexpr (tag == MsgUnimplemented) {
@@ -778,20 +800,21 @@ class PCSX2Ipc {
         if constexpr (T) {
             if (BatchSafetyChecks(5 + sizeof(Y))) {
                 SetError(OutOfMemory);
-                return (char *)0;
+                return (char*)0;
             }
-            char *cmd = ToArray<Y>(
+            char* cmd = ToArray<Y>(
                 FormatBeginning<true>(&ipc_buffer[batch_len], address, tag),
                 value, 5);
             batch_len += 5 + sizeof(Y);
             arg_cnt += 1;
             return cmd;
-        } else {
+        }
+        else {
             // we are already locked in batch mode
             std::lock_guard<std::mutex> lock(ipc_blocking);
             int size = 4 + 5 + sizeof(Y);
-            char *cmd = ToArray(FormatBeginning(ipc_buffer, address, tag, size),
-                                value, 4 + 5);
+            char* cmd = ToArray(FormatBeginning(ipc_buffer, address, tag, size),
+                value, 4 + 5);
             SendCommand(IPCBuffer{ size, cmd }, IPCBuffer{ 1 + 4, ret_buffer });
             return;
         }
@@ -807,12 +830,54 @@ class PCSX2Ipc {
      * @see IPCCommand
      * @see IPCStatus
      * @param T Flag to enable batch processing or not.
-     * @return If in batch mode the IPC message otherwise the version string.
+     * @return If in batch mode the IPC message otherwise the version string. @n
+     * /!\ If not in batch mode this function passes ownership of a datastream
+     * to you, do not forget to free it!
      */
     template <bool T = false>
     auto Version() {
         constexpr IPCCommand tag = MsgVersion;
         return StringCommands<tag>();
+    }
+
+    /**
+     * Retrieves emulator status. @n
+     * On error throws an IPCStatus. @n
+     * Format: XX @n
+     * Legend: XX = IPC Tag. @n
+     * Return: ZZ ZZ ZZ ZZ @n
+     * Legend: ZZ = emulator status.
+     * @see IPCCommand
+     * @see IPCStatus
+     * @param T Flag to enable batch processing or not.
+     * @return If in batch mode the IPC message otherwise the emulator status.
+     */
+    template <bool T = false>
+    auto Status() {
+        constexpr IPCCommand tag = MsgStatus;
+        // batch mode
+        if constexpr (T) {
+            if (BatchSafetyChecks(1, 4)) {
+                SetError(OutOfMemory);
+                return (char*)0;
+            }
+            char* cmd = &ipc_buffer[batch_len];
+            cmd[0] = tag;
+            batch_len += 1;
+            batch_arg_place[arg_cnt] = reply_len;
+            reply_len += 4;
+            arg_cnt += 1;
+            return cmd;
+        }
+        else {
+            // we are already locked in batch mode
+            std::lock_guard<std::mutex> lock(ipc_blocking);
+            ToArray(ipc_buffer, 4 + 1, 0);
+            ipc_buffer[4] = tag;
+            SendCommand(IPCBuffer{ 4 + 1, ipc_buffer },
+                IPCBuffer{ 4 + 1 + 4, ret_buffer });
+            return GetReply<tag>(ret_buffer, 5);
+        }
     }
 
     /**
@@ -825,7 +890,9 @@ class PCSX2Ipc {
      * @see IPCCommand
      * @see IPCStatus
      * @param T Flag to enable batch processing or not.
-     * @return If in batch mode the IPC message otherwise the version string.
+     * @return If in batch mode the IPC message otherwise the version string. @n
+     * /!\ If not in batch mode this function passes ownership of a datastream
+     * to you, do not forget to free it!
      */
     template <bool T = false>
     auto GetGameTitle() {
@@ -843,7 +910,9 @@ class PCSX2Ipc {
      * @see IPCCommand
      * @see IPCStatus
      * @param T Flag to enable batch processing or not.
-     * @return If in batch mode the IPC message otherwise the version string.
+     * @return If in batch mode the IPC message otherwise the version string. @n
+     * /!\ If not in batch mode this function passes ownership of a datastream
+     * to you, do not forget to free it!
      */
     template <bool T = false>
     auto GetGameID() {
@@ -861,11 +930,34 @@ class PCSX2Ipc {
      * @see IPCCommand
      * @see IPCStatus
      * @param T Flag to enable batch processing or not.
-     * @return If in batch mode the IPC message otherwise the version string.
+     * @return If in batch mode the IPC message otherwise the version string. @n
+     * /!\ If not in batch mode this function passes ownership of a datastream
+     * to you, do not forget to free it!
      */
     template <bool T = false>
     auto GetGameUUID() {
         constexpr IPCCommand tag = MsgUUID;
+        return StringCommands<tag>();
+    }
+
+    /**
+     * Retrieves the game version. @n
+     * On error throws an IPCStatus. @n
+     * Format: XX @n
+     * Legend: XX = IPC Tag. @n
+     * Return: ZZ * 256 @n
+     * Legend: ZZ = game version string.
+     * @see IPCCommand
+     * @see IPCStatus
+     * @param T Flag to enable batch processing or not.
+     * @return If in batch mode the IPC message otherwise the game version
+     * string. @n
+     * /!\ If not in batch mode this function passes ownership of a datastream
+     * to you, do not forget to free it!
+     */
+    template <bool T = false>
+    auto GetGameVersion() {
+        constexpr IPCCommand tag = MsgGameVersion;
         return StringCommands<tag>();
     }
 
@@ -919,23 +1011,23 @@ class PCSX2Ipc {
         WSADATA wsa;
         WSAStartup(MAKEWORD(2, 2), &wsa);
 #else
+        char* runtime_dir = nullptr;
 #ifdef __APPLE__
-        char *runtime_dir = std::getenv("TMPDIR");
+        runtime_dir = std::getenv("TMPDIR");
 #else
-        char *runtime_dir = std::getenv("XDG_RUNTIME_DIR");
+        runtime_dir = std::getenv("XDG_RUNTIME_DIR");
 #endif
         // fallback in case macOS or other OSes don't implement the XDG base
         // spec
-        if (runtime_dir == NULL)
-            SOCKET_NAME = (char *)"/tmp/pcsx2.sock";
-        else
-            SOCKET_NAME = strcat(runtime_dir, "/pcsx2.sock");
+        if (runtime_dir == nullptr)
+            SOCKET_NAME = "/tmp/pcsx2.sock";
+        else {
+            SOCKET_NAME = runtime_dir;
+            SOCKET_NAME += "/pcsx2.sock";
+        }
 
         if (slot != DEFAULT_SLOT) {
-            // maximum size of .%u
-            char slot_ending[34];
-            sprintf(slot_ending, ".%u", slot);
-            SOCKET_NAME = strcat(SOCKET_NAME, slot_ending);
+            SOCKET_NAME += "." + std::to_string(slot);
         }
 #endif
         this->slot = slot;

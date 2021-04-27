@@ -19,5 +19,5 @@ You can add oClass lookup files along the main executable with the following for
 This format is the same used in [Replanetizer](https://github.com/RatchetModding/replanetizer/blob/master/Replanetizer/ModelLists/ModelListRC1.txt).
  
 # License
-Everything in this repository is made avaliable under the [3-Clause BSD License](https://opensource.org/licenses/BSD-3-Clause).
-See `LICENSE.TXT`.
+Everything in this repository is made avaliable under the [3-Clause BSD License](https://opensource.org/licenses/BSD-3-Clause), unless specified otherwise.
+See `LICENSE.TXT` for more information.

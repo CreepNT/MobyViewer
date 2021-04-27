@@ -5,6 +5,7 @@
 #error PCSX2 Target cannot be built for non-Win32 platforms yet.
 #endif
 
+#include "pcsx2_ipc.h"
 #include "ps2emu.h"
 #include "target.h"
 #include <stdio.h>
@@ -15,6 +16,7 @@
 //The ideal would be to use IPC, but it is not widespread enough and too limited for now.
 //IPC support will probably be added when memory ranges reads will be supported.
 
+#ifdef _WIN32
 namespace {
 	static BOOL CALLBACK EnumWindowsCB(HWND hwnd, LPARAM lParam) {
 		DWORD ret, procId;
@@ -43,7 +45,7 @@ namespace {
 		else return TRUE;
 	}
 }
-
+#endif
 
 
 int PS2EmuTarget::init(const void* initParams) {
@@ -55,6 +57,7 @@ int PS2EmuTarget::init(const void* initParams) {
 		ipcPort = ip->port;
 	}
 	if (!this->useIPC) {
+#ifdef _WIN32
 		EnumWindows(EnumWindowsCB, (LPARAM)&this->PS2EmuHandle);
 		if (this->PS2EmuHandle == NULL) {
 			fprintf(stderr, "[PS2Emu - Target] Initialization of PS2Emu target failed, because I couldn't get a handle to the process !\n"
@@ -77,18 +80,38 @@ int PS2EmuTarget::init(const void* initParams) {
 					"Are you sure PCSX2 is open, and the game is launched ?\n");
 			return INIT_FAIL;
 		}
+#else
+		fprintf(stderr, "[PS2Emu - Target] Initialization failed, because no-IPC mode is only supported on Windows platforms.\n");
+		return INIT_FAIL;
+#endif
 	}
 	else {
-		//TODO : add IPC init code.
-		//IPC is not supported yet because getting meson to build CMake dependencies is a pain.
-		fprintf(stderr, "[PS2Emu - Target] Initialization of PS2Emu target failed, because you requested to use IPC...\n");
-		return INIT_FAIL;
+		this->IpcHandle = new PCSX2Ipc((ipcPort == 0) ? 28011 : ipcPort);
+		if (this->IpcHandle == nullptr) {
+			fprintf(stderr, "[PS2Emu - Target] Failed to create PCSX2Ipc object.\n");
+			return INIT_FAIL;
+		}
+		else {
+			try {
+				printf("[PS2Emu - Target] Version from IPC : %s\n", this->IpcHandle->Version());
+			}
+			catch (...) {
+				fprintf(stderr, "[PS2Emu - Target] Caught expection when getting version from IPC - assuming init failed.\n");
+				delete this->IpcHandle;
+				this->IpcHandle = nullptr;
+				return INIT_FAIL;
+			}
+			printf("[PS2Emu - Target] Target initialized with success !\n");
+			this->initialized = true;
+			return INIT_OK;
+		}
 	}
 }
 
 void PS2EmuTarget::cleanup(void) {
 	if (!this->initialized) return;
-	//TODO : add IPC cleanup code
+
+#ifdef _WIN32
 	if (this->PS2EmuHandle != NULL) {
 		if (CloseHandle(this->PS2EmuHandle) == 0) {
 			DWORD error = GetLastError();
@@ -96,6 +119,13 @@ void PS2EmuTarget::cleanup(void) {
 		}
 		this->PS2EmuHandle = NULL;
 	}
+#endif
+
+	if (this->IpcHandle != nullptr) {
+		delete this->IpcHandle;
+		this->IpcHandle = nullptr;
+	}
+	this->initialized = false;
 }
 
 size_t PS2EmuTarget::readTargetMemory(uint32_t addr, uint8_t* buf, size_t readSize) {
@@ -105,22 +135,48 @@ size_t PS2EmuTarget::readTargetMemory(uint32_t addr, uint8_t* buf, size_t readSi
 	}
 	uint32_t raddr = this->translateAddressToPS2AddressSpace(addr);
 	if (!this->useIPC) {
+#ifdef _WIN32
 		SIZE_T rs = 0;
 		BOOL ret = ReadProcessMemory(this->PS2EmuHandle, (LPCVOID)raddr, (LPVOID)buf, (SIZE_T)readSize, &rs);
 		return (size_t)rs;
+#endif
 	}
 	else {
-		//TODO : add IPC reading code
-		return 0;
+		this->IpcHandle->InitializeBatch();
+		for (size_t i = 0; i < readSize; i++) {
+			this->IpcHandle->Read<uint8_t, true>(raddr + i);
+		}
+		auto res = this->IpcHandle->FinalizeBatch();
+		this->IpcHandle->SendCommand(res);
+		for (size_t i = 0; i < readSize; i++) {
+			buf[i] = this->IpcHandle->GetReply<PCSX2Ipc::MsgRead8>(res, i);
+		}
+		return readSize;
 	}
 }
 
-/*
-inline uint32_t PS2EmuTarget::translateAddressToPS2AddressSpace(uint32_t addr) {
-	uint32_t ret = (addr & 0x3FFFFFF); //Keep only the low bytes, because max address is 0x2000000 -- This *might* not hold true for Scratchpad
-	if (ret > 0x2000000) return INVALID_ADDRESS;
-	else return (ret | this->EEMemBase);
+size_t PS2EmuTarget::writeTargetMemory(uint32_t addr, uint8_t* buf, size_t writeSize) {
+	if (!this->initialized) {
+		fprintf(stderr, "[PS2Emu - Target] Attempted to write to uninitialized target.\n");
+		return 0;
+	}
+	uint32_t raddr = this->translateAddressToPS2AddressSpace(addr);
+	if (!this->useIPC) {
+#ifdef _WIN32
+		SIZE_T rs = 0;
+		BOOL ret = WriteProcessMemory(this->PS2EmuHandle, (LPVOID)raddr, (LPCVOID)buf, (SIZE_T)writeSize, &rs);
+		return (size_t)rs;
+#endif
+	}
+	else {
+		this->IpcHandle->InitializeBatch();
+		for (size_t i = 0; i < writeSize; i++) {
+			this->IpcHandle->Write<uint8_t, true>(raddr + i, buf[i]);
+		}
+		auto res = this->IpcHandle->FinalizeBatch();
+		this->IpcHandle->SendCommand(res);
+		return writeSize;
+	}
 }
-*/
 
 PS2EmuTarget PS2_emu_target;
