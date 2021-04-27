@@ -1,6 +1,6 @@
 #ifndef SRC_MOBY_H
 #define SRC_MOBY_H
-#include <stdint.h>
+#include <cstdint>
 
 #define MOBY_SIZE 0x100
 

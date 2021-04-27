@@ -1,15 +1,14 @@
-﻿
+﻿#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cctype>
+#include <ctime>
+
 #include "ogl_imgui.h"
 #include "dbmgr.h"
 #include "moby.h"
 #include "targets.h"
 #include "icon.h"
-
-#include <stdio.h>
-#include <ctype.h>
-#include <time.h>
-#include <vector>
-
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

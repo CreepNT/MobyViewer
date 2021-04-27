@@ -1,14 +1,15 @@
+#include <cstdint>
+#include <cstddef>
+#include <cstdio>
+
 #ifdef _WIN32
 #include <Windows.h>
 #include <Psapi.h>
-#else
-#error PCSX2 Target cannot be built for non-Win32 platforms yet.
 #endif
 
 #include "pcsx2_ipc.h"
 #include "ps2emu.h"
 #include "target.h"
-#include <stdio.h>
 
 #define MAGIC (UINT32)0x3C1A8001
 

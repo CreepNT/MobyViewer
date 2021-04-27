@@ -1,7 +1,9 @@
 #ifndef SRC_TARGETS_PS2EMU_H
 #define SRC_TARGETS_PS2EMU_H
 
-#include <stdint.h>
+#include <cstdint>
+#include <cstddef>
+
 #include "target.h"
 #include "pcsx2_ipc.h"
 

@@ -1,5 +1,5 @@
 #include "target.h"
-#include <stdio.h>
+#include <cstdio>
 
 class DummyTarget : public Target {
 	size_t readTargetMemory(uint32_t addr, uint8_t* buf, size_t readSize) {

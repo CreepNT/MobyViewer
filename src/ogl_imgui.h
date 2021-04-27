@@ -12,7 +12,7 @@
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 
-//Returns 1 on success, 0 on error.
+//Returns true on success, false on error.
 bool init_OGL_ImGui(GLFWwindow** window);
 
 #endif

@@ -1,5 +1,5 @@
 #include "ogl_imgui.h"
-#include <stdio.h>
+#include <cstdio>
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -12,7 +12,7 @@ bool init_OGL_ImGui(GLFWwindow** window) {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()) {
         fprintf(stderr, "Failed to initialize glfw.\n");
-        return 0;
+        return false;
     }
         
 
@@ -37,7 +37,7 @@ bool init_OGL_ImGui(GLFWwindow** window) {
     GLFWwindow* winptr = glfwCreateWindow(1280, 720, WINDOW_TITLE, NULL, NULL);
     if (winptr == NULL) {
         fprintf(stderr, "Failed to create glfw window.\n");
-        return 0;
+        return false;
     }
     glfwMakeContextCurrent(winptr);
     glfwSwapInterval(1); // Enable vsync
@@ -63,7 +63,7 @@ bool init_OGL_ImGui(GLFWwindow** window) {
     if (err)
     {
         fprintf(stderr, "Failed to initialize OpenGL loader.\n");
-        return 0;
+        return false;
     }
 
     // Setup Dear ImGui context
@@ -80,5 +80,5 @@ bool init_OGL_ImGui(GLFWwindow** window) {
     ImGui_ImplGlfw_InitForOpenGL(winptr, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
     *window = winptr;
-    return 1;
+    return true;
 }

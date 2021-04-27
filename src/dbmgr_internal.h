@@ -1,5 +1,5 @@
 
-#include <stdint.h>
+#include <cstdint>
 
 #define EE_MEMORY_SIZE (32 * 1024 * 1024)
 #define DBMGR_INTERNAL_FAILURE -1

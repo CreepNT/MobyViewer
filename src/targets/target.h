@@ -1,7 +1,8 @@
 #ifndef SRC_TARGETS_TARGETS_H
 #define SRC_TARGETS_TARGETS_H
 
-#include <stdint.h>
+#include <cstdint>
+#include <cstddef>
 
 enum TargetPlatforms {
 	TARGET_PLATFORM_PS2EMU,

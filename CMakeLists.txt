@@ -3,6 +3,10 @@ project(MobyViewer)
 include_directories(include)
 include_directories(include/imgui)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 if(MSVC)
 	# Without this, MSVC won't report the correct standards version via the
 	# __cplusplus macro. See:
