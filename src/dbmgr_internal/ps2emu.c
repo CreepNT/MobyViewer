@@ -23,14 +23,13 @@
 
 //Tweaked implementation of chaoticgd's memmap.c from Wrench.
 //See : https://github.com/chaoticgd/wrench/blob/master/src/cli/memmap.c
+#include "../dbmgr_internal.h" //Return codes
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
-#define DBMGR_INTERNAL_FAILURE -1
-#define DBMGR_INTERNAL_OK 0
 
 // Prints out a memory map from an eeMemory.bin file.
 // Supports R&C1, R&C2, R&C3 and Deadlocked.
@@ -42,9 +41,11 @@
 #define RAC2_SEGMENT_COUNT 35
 #define RAC3_SEGMENT_COUNT 36
 #define DL_SEGMENT_COUNT   53
-#define EE_MEMORY_SIZE     (32 * 1024 * 1024)
 #define KERNEL_BASE        0x0
 #define CODE_SEGMENT_BASE  0x100000
+
+#define MAP_BUILD_OK 0
+#define MAP_BUILD_FAIL -1
 
 typedef struct {
 	const char* name;
@@ -53,9 +54,9 @@ typedef struct {
 } memory_segment;
 
 int detect_game(uint8_t* ee_memory);
-void build_memory_map_rac1(memory_segment* map, uint8_t* ee_memory);
+int build_memory_map_rac1(memory_segment* map, uint8_t* ee_memory);
 int find_opcode_pattern(uint32_t* ee_memory, const int8_t* pattern, int instruction_count);
-void build_memory_map_rac234(memory_segment* map, uint32_t* ee_memory, int game);
+int build_memory_map_rac234(memory_segment* map, uint32_t* ee_memory, int game);
 void print_memory_map(memory_segment* map, int segment_count);
 
 // Caution: Deadlocked contains the R&C3 pattern.
@@ -76,21 +77,22 @@ int getMobyStackAddressesAndGameForPS2Emu(uint8_t* eeMemory, uint32_t* pGame, ui
 	*stackBase = 0;
 	*stackMax = 0;
 	int game = detect_game(eeMemory);
+	int ret = MAP_BUILD_FAIL;
 
 	memory_segment map[MAX_SEGMENT_COUNT];
 	switch (game) {
 	case 0:
 		printf("[PS2Emu - memmap] Detected R&C1.\n");
-		build_memory_map_rac1(map, eeMemory);
+		ret = build_memory_map_rac1(map, eeMemory);
 		break;
 	case 1:
 	case 2:
 		printf("[PS2Emu - memmap] Detected R&C%d.\n", game + 1);
-		build_memory_map_rac234(map, (uint32_t*)eeMemory, game);
+		ret = build_memory_map_rac234(map, (uint32_t*)eeMemory, game);
 		break;
 	case 3:
 		printf("[PS2Emu - memmap] Detected Ratchet 4.\n");
-		build_memory_map_rac234(map, (uint32_t*)eeMemory, game);
+		ret = build_memory_map_rac234(map, (uint32_t*)eeMemory, game);
 		break;
 	default:
 		fprintf(stderr, "[PS2Emu - memmap] Couldn't detect game. (%d)\n", game);
@@ -134,12 +136,12 @@ int detect_game(uint8_t* ee_memory) {
 	tmp.pointer = GET_POINTER(hi, lo); \
 	if(tmp.pointer > EE_MEMORY_SIZE - 4) { \
 		fprintf(stderr, "[PS2Emu - memmap] Invalid memory segment pointer address.\n"); \
-		exit(1); \
+		return MAP_BUILD_FAIL; \
 	} \
 	tmp.address = *(uint32_t*) &ee_memory[tmp.pointer]; \
 	if(tmp.address > EE_MEMORY_SIZE) { \
-		fprintf(stderr, "error: Invalid memory segment address: %x.\n", tmp.address); \
-		exit(1); \
+		fprintf(stderr, "[PS2Emu - memmap] Invalid memory segment address: %x.\n", tmp.address); \
+		return MAP_BUILD_FAIL; \
 	} \
 	map[i++] = tmp
 // Convenience macro as sometimes lo = hi + 4.
@@ -157,13 +159,13 @@ static const int8_t RAC1_MEMMAP_OPCODES[] = {
 		OPCODE_JAL
 };
 
-void build_memory_map_rac1(memory_segment* map, uint8_t* ee_memory) {
+int build_memory_map_rac1(memory_segment* map, uint8_t* ee_memory) {
 	// Find the bit in the code where the sizes of all the memory segments get
 	// printed out.
 	int res = find_opcode_pattern((uint32_t*)ee_memory, RAC1_MEMMAP_OPCODES, sizeof(RAC1_MEMMAP_OPCODES));
 	if (res == -1) {
 		fprintf(stderr, "[PS2Emu - memmap] Unable to find memory map code!\n");
-		exit(1);
+		return MAP_BUILD_FAIL;
 	}
 
 	// Used by the macros below.
@@ -196,6 +198,7 @@ void build_memory_map_rac1(memory_segment* map, uint8_t* ee_memory) {
 	RAC1_SEGMENT_SEQ("Moby Pvars", 0x4e0);
 	RAC1_SEGMENT_SEQ("Paths", 0x514);
 	RAC1_SEGMENT_SEQ("Part Instances + Stack", 0x560);
+	return MAP_BUILD_OK;
 }
 
 int find_opcode_pattern(uint32_t* ee_memory, const int8_t* pattern, int instruction_count) {
@@ -214,7 +217,8 @@ int find_opcode_pattern(uint32_t* ee_memory, const int8_t* pattern, int instruct
 	return -1;
 }
 
-void build_memory_map_rac234(memory_segment* map, uint32_t* ee_memory, int game) {
+
+int build_memory_map_rac234(memory_segment* map, uint32_t* ee_memory, int game) {
 	int32_t i, j;
 	for (i = CODE_SEGMENT_BASE / 0x4; i < EE_MEMORY_SIZE / 4 - SEGMENT_COUNTS[game]; i++) {
 		uint32_t* ptr = ee_memory + i;
@@ -239,10 +243,10 @@ void build_memory_map_rac234(memory_segment* map, uint32_t* ee_memory, int game)
 			memory_segment seg = { SEGMENT_LABELS[game][j], (i + j) * 4, ptr[j] };
 			map[j] = seg;
 		}
-		return;
+		return MAP_BUILD_OK;
 	}
 	fprintf(stderr, "[PS2Emu - memmap] Failed to find memory map.\n");
-	exit(1);
+	return MAP_BUILD_FAIL;
 }
 
 void print_memory_map(memory_segment* map, int segment_count) {
@@ -281,12 +285,13 @@ void print_memory_map(memory_segment* map, int segment_count) {
 	}
 }
 
-//just a copypaste of print, but bad
+//Just a copypaste of print with very qualitative (:p) modifications
 int get_moby_stack_ptrs(memory_segment* map, int segment_count, uint32_t* stackBase, uint32_t* stackMax) {
 	int i, j;
 	for (i = 0; i < segment_count; i++) {
-		const char targetSegment[]= "Moby Instances";
-		if (strncmp(targetSegment, map[i].name, sizeof(targetSegment)) != 0) //i don't know if i should feel ashamed of that, but i'm not
+		const char targetSegment1[] = "Moby Instances", targetSegment2[] = "level_moby_insts";
+		if ( (strncmp(targetSegment1, map[i].name, sizeof(targetSegment1)) != 0) &&  //I don't know if I should feel ashamed of that, but I'm not
+			(strncmp(targetSegment2, map[i].name, sizeof(targetSegment2)) != 0))
 			continue;
 
 		int32_t size = INT32_MAX;
@@ -308,6 +313,10 @@ int get_moby_stack_ptrs(memory_segment* map, int segment_count, uint32_t* stackB
 					*stackMax = map[j].address;
 					size = possible_size;
 				}
+			}
+			if (size == INT32_MAX) {
+				// It's the last segment, assume it takes up the rest of memory.
+				size = EE_MEMORY_SIZE - map[i].address;
 			}
 		}
 		if (size == -1) {
@@ -401,57 +410,57 @@ static const char* RAC3_SEGMENT_LABELS[RAC3_SEGMENT_COUNT] = {
 };
 
 static const char* DL_SEGMENT_LABELS[DL_SEGMENT_COUNT] = {
-	"OS",
-	"Code",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"Tfrag Geometry",
-	"Occlusion",
-	"Sky",
-	"Collision",
-	"Shared VRAM",
-	"Particle VRAM",
-	"Effects VRAM",
-	"Mobies",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"Help Messages",
-	"Tie Instances",
-	"",
-	"Moby Instances",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"HUD",
-	"",
-	"",
-	"",
-	""
+	"os",
+	"code",
+	"base",
+	"vu1_chain_1",
+	"vu1_chain_2",
+	"tie_cache",
+	"moby_joint_cache",
+	"joint_cache_entry_list",
+	"level_base",
+	"level_nav",
+	"level_tfrag",
+	"level_occl",
+	"level_sky",
+	"level_coll",
+	"level_vram",
+	"level_part_vram",
+	"level_fx_vram",
+	"level_mobys",
+	"level_ties",
+	"level_shrubs",
+	"level_ratchet",
+	"level_gameplay",
+	"level_global_nav_data",
+	"level_mission_load_buffer",
+	"level_mission_pvar_buffer",
+	"level_mission_class_buffer_1",
+	"level_mission_class_buffer_2",
+	"level_mission_moby_insts",
+	"level_mission_moby_pvars",
+	"level_mission_moby_groups",
+	"level_mission_moby_shared",
+	"level_art",
+	"level_help",
+	"level_tie_insts",
+	"level_shrub_insts",
+	"level_moby_insts",
+	"level_moby_insts_backup",
+	"level_moby_pvars",
+	"level_moby_pvars_backup",
+	"level_misc_insts",
+	"level_part_insts",
+	"level_moby_sound_remap",
+	"level_end",
+	"perm_base",
+	"perm_armor",
+	"perm_armor2",
+	"perm_skin",
+	"perm_patch",
+	"hud",
+	"gui",
+	"net_overlay",
+	"heap",
+	"stack"
 };
