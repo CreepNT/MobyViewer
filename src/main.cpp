@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cctype>
-#include <ctime>
 
 #include "ogl_imgui.h"
 #include "dbmgr.h"
@@ -20,7 +19,8 @@
 #endif
 
 float DISTANCE(Moby* a, Moby* b) {
-    return sqrtf(powf(b->pos.x - a->pos.x, 2.0) + powf(b->pos.y - a->pos.y, 2.0) + powf(b->pos.z - a->pos.z, 2.0));
+    if (!a || !b) return 100.0f;
+    return sqrtf(powf(b->pos.x - a->pos.x, 2.0f) + powf(b->pos.y - a->pos.y, 2.0f) + powf(b->pos.z - a->pos.z, 2.0f));
 }
 
 char* getGameNameFromID(int id) {
@@ -119,7 +119,7 @@ char* getOClassStringForID(uint16_t oClass, uint32_t game) {
 
 void loadStrings(){
     FILE* fh = NULL;
-    for (int i = 0; i < GAMES_COUNT; i++) {
+    for (size_t i = 0; i < GAMES_COUNT; i++) {
         char fileName[64];
         snprintf(fileName, sizeof(fileName), RESSOURCES_PATH "rc%d.txt", (i + 1));
         fh = fopen(fileName, "r");
@@ -128,28 +128,34 @@ void loadStrings(){
             continue;
         }
         size_t linesCount = getLinesCountFromFH(fh);
-        oClassString* sp = (oClassString*)malloc(linesCount * sizeof(oClassString));
-        if (sp == NULL) {
+        oClassString* oCSptr = (oClassString*)malloc(linesCount * sizeof(oClassString));
+        if (oCSptr == NULL) {
             fprintf(stderr, "Failed to allocate memory for strings from R&C%d.\n", i + 1);
             continue;
         }
-        gameStrings[i].strings = sp;
-        gameStrings[i].stringsNum = linesCount;
-        for (int j = 0; j < linesCount; j++) {
+        gameStrings[i].strings = oCSptr;
+        gameStrings[i].stringsNum = 0;
+
+        size_t validStringsCount = 0;
+        for (size_t j = 0; j < linesCount; j++) {
             char lineBuf[512], strBuf[512];
-            uint16_t oClass;
             getLineFromFH(fh, lineBuf, sizeof(lineBuf));
-            int ret = sscanf(lineBuf, "%04hX=%s", &oClass, strBuf);
-            if (ret != 2) {
-                fprintf(stderr, "Malformed string '%s' in file '%s' !\n", lineBuf, fileName);
-                gameStrings[i].strings[j].oClass = 0xFFFF; //Hopefully this doesn't collide with anything
-                gameStrings[i].strings[j].name = "Paradox ERR";
+            
+            unsigned long oClass = 0;
+            char* strPastOClass = NULL;
+            oClass = strtoul(lineBuf, &strPastOClass, 16);
+            if (strPastOClass == NULL || *strPastOClass != '=' || oClass > (unsigned long)UINT16_MAX) {
+                fprintf(stderr, "Malformed string '%s' in file '%s' ! (strtol returned %ld)\n", lineBuf, fileName, oClass);
                 continue;
             }
-            gameStrings[i].strings[j].name = copyStringToMallocedSpace(strBuf);
-            gameStrings[i].strings[j].oClass = oClass;
-            printf("oClass %hd is '%s' for R&C%d\n", oClass, strBuf, (i + 1));
+            else {
+                oCSptr[validStringsCount].oClass = (uint16_t)oClass;
+                oCSptr[validStringsCount].name = copyStringToMallocedSpace(&strPastOClass[1] /* skip = */);
+                printf("oClass %hd is '%s' for R&C%d\n", oCSptr[validStringsCount].oClass, oCSptr[validStringsCount].name, (i + 1));
+                validStringsCount++;
+            }
         }
+        gameStrings[i].stringsNum = validStringsCount;
     }
 }
 
@@ -158,8 +164,7 @@ void unloadStrings(){
         if (gameStrings[i].strings == nullptr)
             continue;
         for (int j = 0; j < gameStrings[i].stringsNum; j++) {
-            if (gameStrings[i].strings[j].oClass != 0xFFFF)
-                free(gameStrings[i].strings[j].name);
+            free(gameStrings[i].strings[j].name);
         }
         free(gameStrings[i].strings);
     }
@@ -169,6 +174,15 @@ void AddMobyWidget(Moby* m, uint32_t game) {
     ImGui::Checkbox("Visible", (bool*)&m->visible);
     ImGui::InputFloat4("Unk0", (float*)&m->unk0, "%.3f", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputFloat3("Position", (float*)&m->pos, "%.3f", ImGuiInputTextFlags_ReadOnly);
+    char buf[512];
+    char *oClassStr = getOClassStringForID(m->oClass, game);
+    if (oClassStr != nullptr) {
+        snprintf(buf, sizeof(buf), "%s (%hd)", oClassStr, m->oClass);
+        ImGui::InputText("Moby oClass", buf, strlen(buf), ImGuiInputTextFlags_ReadOnly);
+    }
+    else
+        ImGui::InputScalar("Moby oClass", ImGuiDataType_U16, &m->oClass, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputScalar("Moby UID", ImGuiDataType_U16, &m->UID, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("State", ImGuiDataType_U8, &m->state, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Group", ImGuiDataType_U8, &m->group, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Texture Mode", ImGuiDataType_U8, &m->textureMode, NULL, NULL, "%02hhX", ImGuiInputTextFlags_ReadOnly);
@@ -219,18 +233,8 @@ void AddMobyWidget(Moby* m, uint32_t game) {
     ImGui::InputScalar("UnkA4", ImGuiDataType_U32, &m->unk_A4, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("UnkA8", ImGuiDataType_U16, &m->unk_A8, NULL, NULL, "%04hX", ImGuiInputTextFlags_ReadOnly);
     
-    char* oClassStr = getOClassStringForID(m->oClass, game), buf[512];
-    if (oClassStr != nullptr) {
-        snprintf(buf, sizeof(buf), "%s (%hd)", oClassStr, m->oClass);
-        ImGui::InputText("Moby oClass", buf, strlen(buf), ImGuiInputTextFlags_ReadOnly);
-    }
-    else
-        ImGui::InputScalar("Moby oClass", ImGuiDataType_U16, &m->oClass, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
-    
-    
     ImGui::InputScalar("UnkAC", ImGuiDataType_U32, &m->unk_AC, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("UnkB0", ImGuiDataType_U16, &m->unk_B0, NULL, NULL, "%04hX", ImGuiInputTextFlags_ReadOnly);
-    ImGui::InputScalar("Moby UID", ImGuiDataType_U16, &m->UID, NULL, NULL, NULL, ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("UnkB4", ImGuiDataType_U32, &m->unk_B4, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("Multi-Moby Part pointer", ImGuiDataType_U32, &m->multiMobyPart, NULL, NULL, "@ 0x%08X", ImGuiInputTextFlags_ReadOnly);
     ImGui::InputScalar("UnkBC", ImGuiDataType_U32, &m->unk_BC, NULL, NULL, "%08X", ImGuiInputTextFlags_ReadOnly);
@@ -245,7 +249,7 @@ int main(int argc, char** argv){
 
     GLFWwindow* window = NULL;
     int ret = init_OGL_ImGui(&window);
-    glfwSwapInterval(1); //Enable V-Sync
+    glfwSwapInterval(1);
     IM_ASSERT(ret);
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = NULL; //Disable saving, as there are no window positions to save anyways.
@@ -307,17 +311,17 @@ int main(int argc, char** argv){
                 ImGui::BeginMainMenuBar();
                 char menuBarTextBuffer[64] = { 0 };
                 if (num_mobies != 0) {
-                    sprintf(menuBarTextBuffer, "Moby Table Base @ 0x%08X", stackBase);
+                    snprintf(menuBarTextBuffer, sizeof(menuBarTextBuffer), "Moby Table Base @ 0x%08X", stackBase);
                     if (ImGui::MenuItem(menuBarTextBuffer)) {
-                        sprintf(menuBarTextBuffer, "0x%08X", stackBase);
+                        snprintf(menuBarTextBuffer, sizeof(menuBarTextBuffer), "0x%08X", stackBase);
                         ImGui::SetClipboardText(menuBarTextBuffer);
                     }
-                    sprintf(menuBarTextBuffer, "Moby Table Top @ 0x%08X", stackTop);
+                    snprintf(menuBarTextBuffer, sizeof(menuBarTextBuffer), "Moby Table Top @ 0x%08X (?)", stackTop);
                     if (ImGui::MenuItem(menuBarTextBuffer)) {
-                        sprintf(menuBarTextBuffer, "0x%08X", stackTop);
+                        snprintf(menuBarTextBuffer, sizeof(menuBarTextBuffer), "0x%08X", stackTop);
                         ImGui::SetClipboardText(menuBarTextBuffer);
                     }
-                    sprintf(menuBarTextBuffer, "Loaded mobies : %d", num_mobies);
+                    snprintf(menuBarTextBuffer, sizeof(menuBarTextBuffer), "Alive mobys : %d", num_mobies);
                     ImGui::Text(menuBarTextBuffer);
                 }
                 sprintf(menuBarTextBuffer, "%.0f FPS ", io.Framerate);
@@ -463,8 +467,9 @@ int main(int argc, char** argv){
 
             uint32_t displayedCount = 0, currentGame = database->getCurrentGame();
             Moby* playerMoby = database->getMobyPointer(0); //Ratchet moby is always the first (?)
-            for (int i = 0; i < num_mobies ; i++) {
+            for (size_t i = 0; i < num_mobies ; i++) {
                 Moby* mb = database->getMobyPointer(i);
+                uintptr_t mbAddr = database->getMobyAddress(i);
                 if (mb == nullptr) {
                     fprintf(stderr, "[main] - getting moby %d returned nullptr.\n", i); continue;
                 }
@@ -473,8 +478,10 @@ int main(int argc, char** argv){
                     (showVisibleMobysOnly && !mb->visible)) 
                     continue; //Skip moby if it doesn't respect active filters
 
+                if (mb->state >= 0xFD) continue; //Skip dead mobys
+
                 char winName[64];
-                sprintf(winName, "Moby #%d @ 0x%08X", i, stackBase + 0x100 * i);
+                sprintf(winName, "Moby #%d @ 0x%08X", i, mbAddr);
                 if (mb->visible)
                     ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4(86.0f / 255.0f, 47.0f / 255.0f, 9.0f / 255.0f, 1.0f));
                 ImGui::BeginChild(winName, ImVec2(ImGui::GetWindowContentRegionWidth() * 0.33f, 225), true, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar);

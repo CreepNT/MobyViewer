@@ -18,6 +18,11 @@ namespace {
 		uint32_t mobyStackBase = 0, mobyStackMax = 0, currentGame = GAME_INVALID;
 	} TargetState;
 
+	typedef struct MobyEntry {
+		Moby moby;
+		uintptr_t mobyAddr; //Address in target's address space where the moby is stored
+	} MobyEntry;
+
 	//Sets a TargetState back to default. Used for internal cleanup.
 	inline void resetTargetState(TargetState* t) {
 		t->currentGame = GAME_INVALID;
@@ -44,8 +49,15 @@ public:
 	//Returns the pointer to selected moby, or nullptr if entryNum is invalid.
 	Moby* getMobyPointer(unsigned int entryNum) {
 		if (entryNum < mobysCount)
-			return &(this->activeMobysBank[entryNum]);
+			return &(this->activeMobysBank[entryNum].moby);
 		else return nullptr;
+	}
+
+	//Returns the address of the selected moby in target's address space, or 0 if entryNum is invalid.
+	uintptr_t getMobyAddress(unsigned int entryNum) {
+		if (entryNum < mobysCount)
+			return this->activeMobysBank[entryNum].mobyAddr;
+		else return 0;
 	}
 
 	//Refreshes data in the database. Call this to read target's memory again.
@@ -126,8 +138,8 @@ private:
 		{&PS2_emu_target}, {&dummy /*PS3Emu*/}, {&dummy /*PS3*/}, {&dummy/*Vita*/}
 	};
 
-	Moby mobysData1[MAX_MOBYS_COUNT] = { 0 };
-	Moby mobysData2[MAX_MOBYS_COUNT] = { 0 };
-	Moby* activeMobysBank = mobysData1;
+	MobyEntry mobysData1[MAX_MOBYS_COUNT] = { 0 };
+	MobyEntry mobysData2[MAX_MOBYS_COUNT] = { 0 };
+	MobyEntry* activeMobysBank = mobysData1;
 	unsigned int mobysCount = 0;
 };
