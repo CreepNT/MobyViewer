@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 project(MobyViewer)
-include_directories(include)
+include_directories(include/)
 include_directories(include/imgui)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -52,7 +52,7 @@ libs/imgui/imgui_draw.cpp
 libs/imgui/imgui_tables.cpp
 libs/imgui/imgui_widgets.cpp
 libs/imgui/backends/imgui_impl_glfw.cpp
-libs/imgui/backends/imgui_impl_opengl3.cpp )
+libs/imgui/backends/imgui_impl_opengl3.cpp  "src/widgets.h" "src/widgets.cpp")
 
 if (WIN32)
 	#Only Windows has precompiled library

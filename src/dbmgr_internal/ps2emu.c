@@ -97,7 +97,7 @@ int getMobyStackAddressesAndGameForPS2Emu(uint8_t* eeMemory, uint32_t* pGame, ui
 	default:
 		fprintf(stderr, "[PS2Emu - memmap] Couldn't detect game. (%d)\n", game);
 		*pGame = 0; //0 maps to invalid game
-		return ;
+		return DBMGR_INTERNAL_FAILURE;
 	}
 	*pGame = game + 1; //Each game maps to its respective number.
 	print_memory_map(map, SEGMENT_COUNTS[game]);
@@ -335,7 +335,7 @@ int get_moby_stack_ptrs(memory_segment* map, int segment_count, uint32_t* stackB
 static const char* RAC2_SEGMENT_LABELS[RAC2_SEGMENT_COUNT] = {
 	"OS",
 	"Code",
-	"",
+	"Base",
 	"",
 	"",
 	"",

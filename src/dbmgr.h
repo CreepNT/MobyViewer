@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "moby.h"
+#include "widgets.h"
 #include "targets.h"
 #include "targets/ps2emu.h"
 
@@ -15,11 +16,15 @@ namespace {
 		Target* target;
 		bool isAttached = false;
 		bool hasValidState = false; //This is true when stackBase, stackMax are valid, and currentGame != GAME_INVALID
-		uint32_t mobyStackBase = 0, mobyStackMax = 0, currentGame = GAME_INVALID;
+		uint32_t mobyStackBase = 0, mobyStackMax = 0;
+		GameID currentGame = GAME_INVALID;
 	} TargetState;
 
 	typedef struct MobyEntry {
-		Moby moby;
+		union {
+			Moby OG3moby;
+			RC4Moby RC4moby;
+		} moby;
 		uintptr_t mobyAddr; //Address in target's address space where the moby is stored
 	} MobyEntry;
 
@@ -47,9 +52,14 @@ public:
 	}
 
 	//Returns the pointer to selected moby, or nullptr if entryNum is invalid.
-	Moby* getMobyPointer(unsigned int entryNum) {
-		if (entryNum < mobysCount)
-			return &(this->activeMobysBank[entryNum].moby);
+	//Cast pointer to RC4Moby* if the current game is RC4, else cast it to Moby*
+	void* getMobyPointer(unsigned int entryNum) {
+		if (entryNum < mobysCount) {
+			if (this->targetsState[currentTarget].currentGame != GAME_RC4)
+				return &(this->activeMobysBank[entryNum].moby.OG3moby);
+			else
+				return &(this->activeMobysBank[entryNum].moby.RC4moby);
+		}
 		else return nullptr;
 	}
 
@@ -60,13 +70,14 @@ public:
 		else return 0;
 	}
 
-	//Refreshes data in the database. Call this to read target's memory again.
-	void refresh(void);
+	//Refreshes data in the database. Call this to read target's memory again. Returns 0 on failure.
+	bool refresh(void);
 
 	//Refreshes data in the database, and all internal state variables used. You need to call this when refreshing for the first time,
 	//because DBMgr needs to setup said internals state variables. You can also call this when i.e. switching game/planets on PS2.
 	//Warning : this may be SIGNIFICANTLY slower than just a refreshDB(), only call this for specific cases.
-	void refreshStateAndDB(void);
+	//Returns 0 on failure.
+	bool refreshStateAndDB(void);
 
 	//Changes the target platform. Specifying an invalid target will set it to TARGET_PLATFORM_NONE.
 	void setNewTarget(int target) {
@@ -115,14 +126,14 @@ public:
 		return this->targetsState[this->currentTarget].mobyStackMax;
 	}
 
-	//Returns the current game's number (0 = Invalid, 1 = RaC1, etc)
-	uint32_t getCurrentGame(void) {
+	//Returns the current game's number
+	GameID getCurrentGame(void) {
 		return this->targetsState[this->currentTarget].currentGame;
 	}
 
-	//Cleans up a target's internal state
+	//Cleans up a target's internal state - pass TARGET_PLATFORM_NONE for current target
 	void cleanupTarget(int target = TARGET_PLATFORM_NONE) {
-		if (target == TARGET_PLATFORM_NONE) {
+		if (target == TARGET_PLATFORM_NONE && this->currentTarget >= 0) {
 			this->targetsState[this->currentTarget].target->cleanup();
 			resetTargetState(&this->targetsState[this->currentTarget]);
 		}
@@ -141,5 +152,5 @@ private:
 	MobyEntry mobysData1[MAX_MOBYS_COUNT] = { 0 };
 	MobyEntry mobysData2[MAX_MOBYS_COUNT] = { 0 };
 	MobyEntry* activeMobysBank = mobysData1;
-	unsigned int mobysCount = 0;
+	size_t mobysCount = 0;
 };
