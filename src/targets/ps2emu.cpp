@@ -77,6 +77,17 @@ int PS2EmuTarget::init(const void* initParams) {
 					return INIT_OK;
 				}
 			}
+			/* YUCK! But resolving "EEMem" seems complicated... */
+			for (ULONGLONG i = 0x00007FF000000000ULL; i < 0x00007FFF00000000ULL; i += 0x1000000ULL) {
+				BOOL ret = ReadProcessMemory(this->PS2EmuHandle, (LPCVOID)i, &magic, sizeof(magic), NULL);
+				if (ret && magic == MAGIC) {
+					printf("[PS2Emu - Target] PCSX2 EEMemory base address is 0x%08llX (extended).\n", i);
+					this->EEMemBase = (uintptr_t)i; //cast silences warning on 32-bit, but this is dead code anyways...
+					this->initialized = true;
+					printf("[PS2Emu - Target] Target initialized with success !\n");
+					return INIT_OK;
+				}
+			}
 			fprintf(stderr, "[PS2Emu - Target] Initialization of PS2Emu target failed, because I couldn't find the EEMemory base address!\n"
 					"Are you sure PCSX2 is open, and the game is launched ?\n");
 			return INIT_FAIL;
@@ -134,7 +145,7 @@ size_t PS2EmuTarget::readTargetMemory(uint32_t addr, uint8_t* buf, size_t readSi
 		fprintf(stderr, "[PS2Emu - Target] Attempted to read from uninitialized target.\n");
 		return 0;
 	}
-	uint32_t raddr = this->translateAddressToPS2AddressSpace(addr);
+	uintptr_t raddr = this->translateAddressToPS2AddressSpace(addr);
 	if (!this->useIPC) {
 #ifdef _WIN32
 		SIZE_T rs = 0;
@@ -145,11 +156,11 @@ size_t PS2EmuTarget::readTargetMemory(uint32_t addr, uint8_t* buf, size_t readSi
 	else {
 		this->IpcHandle->InitializeBatch();
 		for (size_t i = 0; i < readSize; i++) {
-			this->IpcHandle->Read<uint8_t, true>(raddr + i);
+			this->IpcHandle->Read<uint8_t, true>((uint32_t)(raddr + i));
 		}
 		auto res = this->IpcHandle->FinalizeBatch();
 		this->IpcHandle->SendCommand(res);
-		for (size_t i = 0; i < readSize; i++) {
+		for (int i = 0; i < (int)readSize; i++) {
 			buf[i] = this->IpcHandle->GetReply<PCSX2Ipc::MsgRead8>(res, i);
 		}
 		return readSize;
@@ -161,7 +172,7 @@ size_t PS2EmuTarget::writeTargetMemory(uint32_t addr, uint8_t* buf, size_t write
 		fprintf(stderr, "[PS2Emu - Target] Attempted to write to uninitialized target.\n");
 		return 0;
 	}
-	uint32_t raddr = this->translateAddressToPS2AddressSpace(addr);
+	uintptr_t raddr = this->translateAddressToPS2AddressSpace(addr);
 	if (!this->useIPC) {
 #ifdef _WIN32
 		SIZE_T rs = 0;
@@ -172,7 +183,7 @@ size_t PS2EmuTarget::writeTargetMemory(uint32_t addr, uint8_t* buf, size_t write
 	else {
 		this->IpcHandle->InitializeBatch();
 		for (size_t i = 0; i < writeSize; i++) {
-			this->IpcHandle->Write<uint8_t, true>(raddr + i, buf[i]);
+			this->IpcHandle->Write<uint8_t, true>((uint32_t)(raddr + i), buf[i]);
 		}
 		auto res = this->IpcHandle->FinalizeBatch();
 		this->IpcHandle->SendCommand(res);

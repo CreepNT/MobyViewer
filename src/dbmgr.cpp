@@ -33,7 +33,7 @@ bool DBMgr::refreshStateAndDB(void) {
 		TargetState* t = &this->targetsState[TARGET_PLATFORM_PS2EMU];
 		size_t rs = t->target->readTargetMemory(0, eem, EE_MEMORY_SIZE);
 		if (rs != EE_MEMORY_SIZE) {
-			fprintf(stderr, "[DBMgr] %d bytes read from EE memory, instead of %d !\n", rs, EE_MEMORY_SIZE);
+			fprintf(stderr, "[DBMgr] %zu bytes read from EE memory, instead of %u !\n", rs, EE_MEMORY_SIZE);
 			return false;
 		}
 		int ret = DBMgrInternal::getMobyStackAddressesAndGameForPS2Emu(eem, &t->currentGame, &t->mobyStackBase, &t->mobyStackMax);
@@ -84,11 +84,11 @@ bool DBMgr::refresh(void) {
 		size_t expectedSize = this->mobysCount * MOBY_SIZE;
 		size_t rsiz = t->target->readTargetMemory(t->mobyStackBase, workBuf, expectedSize);
 		if (rsiz != expectedSize) {
-			fprintf(stderr, "[DBMgr] Failed refresh, because I could only read %d byte(s) instead of expected %d while getting Moby data from PS2Emu.\n", rsiz, expectedSize);
+			fprintf(stderr, "[DBMgr] Failed refresh, because I could only read %zu byte(s) instead of expected %zu while getting Moby data from PS2Emu.\n", rsiz, expectedSize);
 			return false;
 		}
 
-		size_t aliveMobysCount = 0;
+		unsigned int aliveMobysCount = 0;
 		for (size_t i = 0; i < this->mobysCount; i++) {
 			uint8_t* mobyBuf = &workBuf[i * MOBY_SIZE];
 			uint8_t state = mobyBuf[0x20];

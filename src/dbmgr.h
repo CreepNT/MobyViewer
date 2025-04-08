@@ -152,5 +152,5 @@ private:
 	MobyEntry mobysData1[MAX_MOBYS_COUNT] = { 0 };
 	MobyEntry mobysData2[MAX_MOBYS_COUNT] = { 0 };
 	MobyEntry* activeMobysBank = mobysData1;
-	size_t mobysCount = 0;
+	unsigned int mobysCount = 0;
 };

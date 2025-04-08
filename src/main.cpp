@@ -3,8 +3,8 @@
 #include <cstdio>
 #include <cctype>
 
-#include "ogl_imgui.h"
 #include "targets.h"
+#include "ogl_imgui.h"
 #include "widgets.h"
 #include "dbmgr.h"
 #include "icon.h"
@@ -120,7 +120,7 @@ int main(int argc, char** argv){
                 float menubarheight = ImGui::GetWindowSize().y;
                 ImGui::EndMainMenuBar();
                 ImGui::SetNextWindowPos(ImVec2(0, menubarheight));
-                ImGui::SetNextWindowSize(ImVec2(width, static_cast<float>(height) - menubarheight));
+                ImGui::SetNextWindowSize(ImVec2(static_cast<float>(width), static_cast<float>(height) - menubarheight));
             }
 
             //Start fullcanvas window
@@ -275,7 +275,7 @@ int main(int argc, char** argv){
                 uint32_t displayedCount = 0;
                 if (currentGame != GAME_RC4) {
                     Moby* playerMoby = (Moby*)database->getMobyPointer(0); //Player moby should always be the first
-                    for (size_t i = 0; i < num_mobies; i++) {
+                    for (unsigned int i = 0; i < num_mobies; i++) {
                         Moby* mb = static_cast<Moby*>(database->getMobyPointer(i));
                         uintptr_t mbAddr = database->getMobyAddress(i);
                         if ((doFilteringByClass && mb->oClass != filterClass) ||
@@ -284,14 +284,14 @@ int main(int argc, char** argv){
                             continue; //Skip moby if it doesn't respect active filters
 
                         
-                        stmp_sprintf("Moby #%d @ 0x%08X", i, mbAddr);
+                        stmp_sprintf("Moby #%u @ 0x%08llX", i, (uint64_t)mbAddr);
                         if (mb->drawn)
                             ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4(86.0f / 255.0f, 47.0f / 255.0f, 9.0f / 255.0f, 1.0f));
 
                         ImGui::BeginChild(tmpBuf, ImVec2(ImGui::GetWindowContentRegionWidth() * 0.33f, 225), true, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar);
                         ImGui::BeginMenuBar();
                         if (ImGui::MenuItem(tmpBuf)) {
-                            stmp_sprintf("0x%08X", mbAddr);
+                            stmp_sprintf("0x%08llX", (uint64_t)mbAddr);
                             ImGui::SetClipboardText(tmpBuf);
                         }
                         if (ImGui::IsItemHovered())
@@ -309,7 +309,7 @@ int main(int argc, char** argv){
                     }
                 }
                 else {
-                    for (size_t i = 0; i < num_mobies; i++) {
+                    for (unsigned int i = 0; i < num_mobies; i++) {
                         RC4Moby* mb = static_cast<RC4Moby*>(database->getMobyPointer(i));
                         uintptr_t mbAddr = database->getMobyAddress(i);
 
@@ -318,13 +318,13 @@ int main(int argc, char** argv){
                             continue; //Skip moby if it doesn't respect active filters
 
                         
-                        stmp_sprintf("Moby #%d @ 0x%08X", i, mbAddr);
+                        stmp_sprintf("Moby #%u @ 0x%08llX", i, (uint64_t)mbAddr);
                         if (mb->drawn)
                             ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImVec4(86.0f / 255.0f, 47.0f / 255.0f, 9.0f / 255.0f, 1.0f));
                         ImGui::BeginChild(tmpBuf, ImVec2(ImGui::GetWindowContentRegionWidth() * 0.33f, 225), true, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar);
                         ImGui::BeginMenuBar();
                         if (ImGui::MenuItem(tmpBuf)) {
-                            stmp_sprintf("0x%08X", mbAddr);
+                            stmp_sprintf("0x%08llX", (uint64_t)mbAddr);
                             ImGui::SetClipboardText(tmpBuf);
                         }
                         if (ImGui::IsItemHovered())

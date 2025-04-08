@@ -27,7 +27,7 @@ include_directories(
 	libs/imgui
 	libs/glfw/include/
 )
-add_definitions(-DIMGUI_IMPL_OPENGL_LOADER_GLAD=1)
+add_definitions(-DIMGUI_IMPL_OPENGL_LOADER_GLAD=1 -D_CRT_SECURE_NO_WARNINGS=1)
 
 add_executable(${PROJECT_NAME}
 	src/main.cpp

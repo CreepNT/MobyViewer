@@ -58,6 +58,7 @@ int build_memory_map_rac1(memory_segment* map, uint8_t* ee_memory);
 int find_opcode_pattern(uint32_t* ee_memory, const int8_t* pattern, int instruction_count);
 int build_memory_map_rac234(memory_segment* map, uint32_t* ee_memory, int game);
 void print_memory_map(memory_segment* map, int segment_count);
+int get_moby_stack_ptrs(memory_segment* map, int segment_count, uint32_t* stackBase, uint32_t* stackMax);
 
 // Caution: Deadlocked contains the R&C3 pattern.
 static const char* PATTERNS[GAME_COUNT] = {
@@ -106,9 +107,9 @@ int getMobyStackAddressesAndGameForPS2Emu(uint8_t* eeMemory, uint32_t* pGame, ui
 }
 
 int detect_game(uint8_t* ee_memory) {
-	int i, j, k;
+	int i, j;
 	for (i = GAME_COUNT - 1; i >= 0; i--) {
-		int pattern_size = strlen(PATTERNS[i]);
+		int pattern_size = (int)strlen(PATTERNS[i]);
 		for (j = CODE_SEGMENT_BASE; j < EE_MEMORY_SIZE - pattern_size; j++) {
 			if (memcmp(&ee_memory[j], PATTERNS[i], pattern_size) == 0) {
 				return i;
@@ -219,8 +220,8 @@ int find_opcode_pattern(uint32_t* ee_memory, const int8_t* pattern, int instruct
 
 
 int build_memory_map_rac234(memory_segment* map, uint32_t* ee_memory, int game) {
-	int32_t i, j;
-	for (i = CODE_SEGMENT_BASE / 0x4; i < EE_MEMORY_SIZE / 4 - SEGMENT_COUNTS[game]; i++) {
+	uint32_t i, j;
+	for (i = CODE_SEGMENT_BASE / 0x4; i < ((EE_MEMORY_SIZE / 4) - SEGMENT_COUNTS[game]); i++) {
 		uint32_t* ptr = ee_memory + i;
 
 		// The PS2 kernel and code segments are always at the same addresses.

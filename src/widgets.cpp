@@ -14,9 +14,9 @@ typedef struct {
     char* name;
 } oClassString;
 
-typedef struct {
-    uint32_t stringsNum = { 0 };
-    oClassString* strings = { nullptr };
+typedef struct _StringContainer {
+    uint32_t stringsNum = 0;
+    oClassString* strings = nullptr;
 } StringContainer;
 
 static StringContainer gameStrings[GAMES_COUNT] = {};
@@ -30,8 +30,7 @@ static char oClassNameBuf[512] = { 0 };
 #endif
 
 size_t GetLinesCountFromFH(FILE* fh) {
-    int ret;
-    size_t linesCount = 1; //Offset by one, because last line might have no \n
+    size_t ret, linesCount = 1; //Offset by one, because last line might have no \n
     char c;
     fseek(fh, 0, SEEK_SET);
     while (ret = fread(&c, 1, 1, fh), ret != EOF && ret != 0) {
@@ -44,8 +43,7 @@ size_t GetLinesCountFromFH(FILE* fh) {
 //This also strips the \n at end of line
 void GetLineFromFH(FILE* fh, char* outStr, size_t maxSiz) {
     char ch, buf[2048] = { u8"Paradox ERR" };
-    int ret;
-    size_t bufctr = 0;
+    size_t ret, bufctr = 0;
     if (maxSiz < sizeof(buf)) {
         while (bufctr < sizeof(buf) && bufctr < maxSiz) {
             ret = fread(&ch, 1, 1, fh);
@@ -84,7 +82,7 @@ void loadStrings(void) {
     FILE* fh = NULL;
     for (size_t i = 0; i < GAMES_COUNT; i++) {
         char fileName[64];
-        snprintf(fileName, sizeof(fileName), RESSOURCES_PATH "rc%d.txt", (i + 1));
+        snprintf(fileName, sizeof(fileName), RESSOURCES_PATH "rc%zd.txt", (i + 1));
         fh = fopen(fileName, "r");
         if (fh == NULL) {
             fprintf(stderr, "Failed to open '%s' for reading.\n", fileName);
@@ -93,7 +91,7 @@ void loadStrings(void) {
         size_t linesCount = GetLinesCountFromFH(fh);
         oClassString* oCSptr = (oClassString*)malloc(linesCount * sizeof(oClassString));
         if (oCSptr == NULL) {
-            fprintf(stderr, "Failed to allocate memory for strings from R&C%d.\n", i + 1);
+            fprintf(stderr, "Failed to allocate memory for strings from R&C%zd.\n", i + 1);
             continue;
         }
         gameStrings[i].strings = oCSptr;
@@ -108,17 +106,17 @@ void loadStrings(void) {
             char* strPastOClass = NULL;
             oClass = strtoul(lineBuf, &strPastOClass, 16);
             if (strPastOClass == NULL || *strPastOClass != '=' || oClass > (unsigned long)UINT16_MAX) {
-                fprintf(stderr, "Malformed string '%s' in file '%s' ! (strtol returned %ld)\n", lineBuf, fileName, oClass);
+                fprintf(stderr, "Malformed string '%s' in file '%s' ! (strtol returned %lu)\n", lineBuf, fileName, oClass);
                 continue;
             }
             else {
                 oCSptr[validStringsCount].oClass = (uint16_t)oClass;
                 oCSptr[validStringsCount].name = CopyStringToMallocedSpace(&strPastOClass[1] /* skip = */);
-                printf("oClass %hd is '%s' for R&C%d\n", oCSptr[validStringsCount].oClass, oCSptr[validStringsCount].name, (i + 1));
+                printf("oClass %hd is '%s' for R&C%zd\n", oCSptr[validStringsCount].oClass, oCSptr[validStringsCount].name, (i + 1));
                 validStringsCount++;
             }
         }
-        gameStrings[i].stringsNum = validStringsCount;
+        gameStrings[i].stringsNum = (uint32_t)validStringsCount;
     }
 }
 

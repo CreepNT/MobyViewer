@@ -30,7 +30,7 @@ typedef struct Matrix4x4 { //Called mtx4 internally
 	Vec4 b;
 	Vec4 c;
 	Vec4 d;
-};
+} Matrix4x4;
 
 typedef uint32_t Pointer;
 

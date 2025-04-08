@@ -26,7 +26,7 @@ public:
 	void cleanup(void);
 
 private:
-	uint32_t translateAddressToPS2AddressSpace(uint32_t addr) {
+	uintptr_t translateAddressToPS2AddressSpace(uint32_t addr) {
 		uint32_t ret = (addr & 0x3FFFFFF); //Keep only the low bytes, because max address is 0x2000000 -- This *might* not hold true for Scratchpad
 		if (ret > 0x2000000) return INVALID_ADDRESS;
 		else return (ret | this->EEMemBase);
@@ -37,7 +37,7 @@ private:
 #ifdef _WIN32
 	HANDLE PS2EmuHandle = nullptr;
 #endif
-	uint32_t EEMemBase = 0; //PCSX2 doesn't map PS2's EE Memory to the same address all the time since 1.7, so we need to offset all accesses ourselves (in non-IPC mode).
+	uintptr_t EEMemBase = 0; //PCSX2 doesn't map PS2's EE Memory to the same address all the time since 1.7, so we need to offset all accesses ourselves (in non-IPC mode).
 };
 
 extern PS2EmuTarget PS2_emu_target;
